@@ -133,8 +133,9 @@ public class CraftingStationGui extends GuiContainer implements INEIGuiHandler {
                     return;
                 }
             }
-            this.fontRendererObj
-                    .drawString(StatCollector.translateToLocal(logic.chest.get().getInventoryName()), 8, 6, 0x202020);
+            String displayName = logic.isMultiChest ? "Inventories"
+                    : StatCollector.translateToLocal(logic.chest.get().getInventoryName());
+            this.fontRendererObj.drawString(displayName, 8, 6, 0x202020);
         }
 
         this.fontRendererObj.drawString(
@@ -352,7 +353,9 @@ public class CraftingStationGui extends GuiContainer implements INEIGuiHandler {
     }
 
     protected boolean shouldDrawName() {
-        return this.logic.chest != null && this.logic.chest.get().getInventoryName() != null
+        if (this.logic.chest == null) return false;
+        if (this.logic.isMultiChest) return true;
+        return this.logic.chest.get().getInventoryName() != null
                 && !this.logic.chest.get().getInventoryName().isEmpty();
     }
 

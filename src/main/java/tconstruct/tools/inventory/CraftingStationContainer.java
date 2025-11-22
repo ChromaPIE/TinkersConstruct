@@ -103,36 +103,68 @@ public class CraftingStationContainer extends Container {
 
         // Side inventory - 46+
         if (logic.chest != null) {
-            IInventory inv = logic.getFirstInventory();
-            IInventory secondInv = logic.getSecondInventory();
+            if (logic.isMultiChest) {
+                // Multi-chest mode
+                int index = 0;
+                for (int chestIdx = 0; chestIdx < logic.multiChests.size(); chestIdx++) {
+                    IInventory inv = logic.multiChests.get(chestIdx).get();
+                    if (inv == null) continue;
 
-            final int accessSide = logic.chestDirection.getOpposite().ordinal();
-            final int[] accessibleSlots = inv instanceof ISidedInventory
-                    ? ((ISidedInventory) inv).getAccessibleSlotsFromSide(accessSide)
-                    : null;
+                    final int accessSide = logic.multiChestDirections.get(chestIdx).getOpposite().ordinal();
+                    final int chestSize = logic.multiChestSizes.get(chestIdx);
+                    final int[] accessibleSlots = inv instanceof ISidedInventory
+                            ? ((ISidedInventory) inv).getAccessibleSlotsFromSide(accessSide)
+                            : null;
 
-            int index = 0, curIndex;
-            IInventory curInv;
-            final int invSize = inv.getSizeInventory() * (secondInv != null ? 2 : 1);
-            for (row = 0; row < logic.invRows; row++) {
-                for (col = 0; col < logic.invColumns; col++) {
-                    if (index >= invSize) break;
-                    // Adjust the inventory to account for double chests
-                    curInv = secondInv != null && index >= 27 ? secondInv : inv;
-                    // Adjust the index for the inventory
-                    curIndex = secondInv != null && index >= 27 ? index - 27 : index;
+                    for (int slotIdx = 0; slotIdx < chestSize; slotIdx++) {
+                        if (index >= logic.slotCount) break;
 
-                    if (accessibleSlots != null) {
-                        if (curIndex >= accessibleSlots.length) {
-                            break;
-                        } else {
-                            curIndex = accessibleSlots[curIndex];
+                        int curIndex = slotIdx;
+                        if (accessibleSlots != null) {
+                            if (slotIdx >= accessibleSlots.length) break;
+                            curIndex = accessibleSlots[slotIdx];
                         }
-                    }
 
-                    this.addSlotToContainer(
-                            new ChestSlot(curInv, curIndex, index, 8 + col * 18, 19 + row * 18, accessSide));
-                    index++;
+                        row = index / logic.invColumns;
+                        col = index % logic.invColumns;
+                        this.addSlotToContainer(
+                                new ChestSlot(inv, curIndex, index, 8 + col * 18, 19 + row * 18, accessSide));
+                        index++;
+                    }
+                }
+            } else {
+                // Single chest mode - original logic
+                IInventory inv = logic.getFirstInventory();
+                IInventory secondInv = logic.getSecondInventory();
+
+                final int accessSide = logic.chestDirection.getOpposite().ordinal();
+                final int[] accessibleSlots = inv instanceof ISidedInventory
+                        ? ((ISidedInventory) inv).getAccessibleSlotsFromSide(accessSide)
+                        : null;
+
+                int index = 0, curIndex;
+                IInventory curInv;
+                final int invSize = inv.getSizeInventory() * (secondInv != null ? 2 : 1);
+                for (row = 0; row < logic.invRows; row++) {
+                    for (col = 0; col < logic.invColumns; col++) {
+                        if (index >= invSize) break;
+                        // Adjust the inventory to account for double chests
+                        curInv = secondInv != null && index >= 27 ? secondInv : inv;
+                        // Adjust the index for the inventory
+                        curIndex = secondInv != null && index >= 27 ? index - 27 : index;
+
+                        if (accessibleSlots != null) {
+                            if (curIndex >= accessibleSlots.length) {
+                                break;
+                            } else {
+                                curIndex = accessibleSlots[curIndex];
+                            }
+                        }
+
+                        this.addSlotToContainer(
+                                new ChestSlot(curInv, curIndex, index, 8 + col * 18, 19 + row * 18, accessSide));
+                        index++;
+                    }
                 }
             }
         }

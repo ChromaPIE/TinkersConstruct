@@ -1,6 +1,8 @@
 package tconstruct.tools.logic;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -31,6 +33,12 @@ public class CraftingStationLogic extends InventoryLogic implements ISidedInvent
     public boolean doubleFirst;
 
     public int invRows, invColumns, slotCount;
+
+    // Multi-chest support
+    public List<WeakReference<IInventory>> multiChests = new ArrayList<>();
+    public List<ForgeDirection> multiChestDirections = new ArrayList<>();
+    public List<Integer> multiChestSizes = new ArrayList<>();
+    public boolean isMultiChest = false;
 
     public CraftingStationLogic() {
         super(10); // 9 for crafting, 1 for output
@@ -65,6 +73,14 @@ public class CraftingStationLogic extends InventoryLogic implements ISidedInvent
         furnace = null;
         tinkerTable = false;
 
+        multiChests.clear();
+        multiChestDirections.clear();
+        multiChestSizes.clear();
+        isMultiChest = false;
+
+        List<TileEntity> validChests = new ArrayList<>();
+        List<ForgeDirection> validDirections = new ArrayList<>();
+
         for (final ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
             final int xPos = x + dir.offsetX, yPos = y + dir.offsetY, zPos = z + dir.offsetZ;
             final TileEntity tile = world.getTileEntity(xPos, yPos, zPos);
@@ -87,31 +103,69 @@ public class CraftingStationLogic extends InventoryLogic implements ISidedInvent
                     && sidedIvn.getAccessibleSlotsFromSide(dir.getOpposite().ordinal()).length == 0)
                 continue;
 
-            if (chest == null && inv.isUseableByPlayer(inventoryplayer.player)) {
-                chest = new WeakReference<>(inv);
-                chestDirection = dir;
-                invColumns = 6;
-                chestSize = tile instanceof ISidedInventory sidedIvn
+            if (inv.isUseableByPlayer(inventoryplayer.player)) {
+                validChests.add(tile);
+                validDirections.add(dir);
+            }
+        }
+
+        if (validChests.size() == 1) {
+            // Single chest mode - original logic
+            TileEntity tile = validChests.get(0);
+            IInventory inv = (IInventory) tile;
+            ForgeDirection dir = validDirections.get(0);
+
+            chest = new WeakReference<>(inv);
+            chestDirection = dir;
+            invColumns = 6;
+            chestSize = tile instanceof ISidedInventory sidedIvn
+                    ? sidedIvn.getAccessibleSlotsFromSide(dir.getOpposite().ordinal()).length
+                    : inv.getSizeInventory();
+
+            if (tile instanceof TileEntityChest tileChest) {
+                if (tileChest.adjacentChestZPos != null) {
+                    doubleChest = new WeakReference<>(tileChest.adjacentChestZPos);
+                    doubleFirst = false;
+                } else if (tileChest.adjacentChestZNeg != null) {
+                    doubleChest = new WeakReference<>(tileChest.adjacentChestZNeg);
+                    doubleFirst = true;
+                } else if (tileChest.adjacentChestXPos != null) {
+                    doubleChest = new WeakReference<>(tileChest.adjacentChestXPos);
+                    doubleFirst = false;
+                } else if (tileChest.adjacentChestXNeg != null) {
+                    doubleChest = new WeakReference<>(tileChest.adjacentChestXNeg);
+                    doubleFirst = true;
+                }
+            }
+            slotCount = chestSize * (doubleChest != null ? 2 : 1);
+            invRows = (int) Math.ceil((double) slotCount / invColumns);
+        } else if (validChests.size() > 1) {
+            // Multi-chest mode
+            isMultiChest = true;
+            invColumns = 6;
+            slotCount = 0;
+
+            for (int i = 0; i < validChests.size(); i++) {
+                TileEntity tile = validChests.get(i);
+                IInventory inv = (IInventory) tile;
+                ForgeDirection dir = validDirections.get(i);
+
+                multiChests.add(new WeakReference<>(inv));
+                multiChestDirections.add(dir);
+
+                int size = tile instanceof ISidedInventory sidedIvn
                         ? sidedIvn.getAccessibleSlotsFromSide(dir.getOpposite().ordinal()).length
                         : inv.getSizeInventory();
+                multiChestSizes.add(size);
+                slotCount += size;
+            }
 
-                if (tile instanceof TileEntityChest tileChest) {
-                    if (tileChest.adjacentChestZPos != null) {
-                        doubleChest = new WeakReference<>(tileChest.adjacentChestZPos);
-                        doubleFirst = false;
-                    } else if (tileChest.adjacentChestZNeg != null) {
-                        doubleChest = new WeakReference<>(tileChest.adjacentChestZNeg);
-                        doubleFirst = true;
-                    } else if (tileChest.adjacentChestXPos != null) {
-                        doubleChest = new WeakReference<>(tileChest.adjacentChestXPos);
-                        doubleFirst = false;
-                    } else if (tileChest.adjacentChestXNeg != null) {
-                        doubleChest = new WeakReference<>(tileChest.adjacentChestXNeg);
-                        doubleFirst = true;
-                    }
-                }
-                slotCount = chestSize * (doubleChest != null ? 2 : 1);
-                invRows = (int) Math.ceil((double) slotCount / invColumns);
+            invRows = (int) Math.ceil((double) slotCount / invColumns);
+
+            // Set first chest as primary for compatibility
+            if (!multiChests.isEmpty()) {
+                chest = multiChests.get(0);
+                chestDirection = multiChestDirections.get(0);
             }
         }
 
