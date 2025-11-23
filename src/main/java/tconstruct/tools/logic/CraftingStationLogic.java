@@ -81,31 +81,22 @@ public class CraftingStationLogic extends InventoryLogic implements ISidedInvent
         List<TileEntity> validChests = new ArrayList<>();
         List<ForgeDirection> validDirections = new ArrayList<>();
 
+        java.util.Set<CraftingStationLogic> visited = new java.util.HashSet<>();
+        collectChestsFromNetwork(world, x, y, z, inventoryplayer.player, validChests, validDirections, visited);
+
         for (final ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
             final int xPos = x + dir.offsetX, yPos = y + dir.offsetY, zPos = z + dir.offsetZ;
             final TileEntity tile = world.getTileEntity(xPos, yPos, zPos);
-            if (!(tile instanceof IInventory inv) || (tile instanceof CraftingStationLogic)
-                    || isBlacklisted(tile.getClass()))
-                continue;
+            if (tile == null) continue;
 
-            if (patternChest == null && tile instanceof PatternChestLogic) {
-                patternChest = new WeakReference<>(inv);
-                continue;
-            } else if (furnace == null && (tile instanceof TileEntityFurnace || tile instanceof FurnaceLogic)) {
-                furnace = new WeakReference<>(inv);
-                continue;
-            } else if (!tinkerTable && tile instanceof ToolStationLogic) {
-                tinkerTable = true;
-                continue;
-            }
-
-            if (tile instanceof ISidedInventory sidedIvn
-                    && sidedIvn.getAccessibleSlotsFromSide(dir.getOpposite().ordinal()).length == 0)
-                continue;
-
-            if (inv.isUseableByPlayer(inventoryplayer.player)) {
-                validChests.add(tile);
-                validDirections.add(dir);
+            if (tile instanceof IInventory inv) {
+                if (patternChest == null && tile instanceof PatternChestLogic) {
+                    patternChest = new WeakReference<>(inv);
+                } else if (furnace == null && (tile instanceof TileEntityFurnace || tile instanceof FurnaceLogic)) {
+                    furnace = new WeakReference<>(inv);
+                } else if (!tinkerTable && tile instanceof ToolStationLogic) {
+                    tinkerTable = true;
+                }
             }
         }
 
@@ -170,6 +161,44 @@ public class CraftingStationLogic extends InventoryLogic implements ISidedInvent
         }
 
         return new CraftingStationContainer(inventoryplayer, this, x, y, z);
+    }
+
+    private void collectChestsFromNetwork(World world, int x, int y, int z, EntityPlayer player,
+            List<TileEntity> validChests, List<ForgeDirection> validDirections,
+            java.util.Set<CraftingStationLogic> visited) {
+
+        TileEntity currentTile = world.getTileEntity(x, y, z);
+        if (currentTile instanceof CraftingStationLogic station) {
+            if (!visited.add(station)) return;
+        }
+
+        for (final ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
+            final int xPos = x + dir.offsetX, yPos = y + dir.offsetY, zPos = z + dir.offsetZ;
+            final TileEntity tile = world.getTileEntity(xPos, yPos, zPos);
+
+            if (tile instanceof CraftingStationLogic) {
+                collectChestsFromNetwork(world, xPos, yPos, zPos, player, validChests, validDirections, visited);
+                continue;
+            }
+
+            if (!(tile instanceof IInventory inv) || isBlacklisted(tile.getClass()))
+                continue;
+
+            if (tile instanceof PatternChestLogic || tile instanceof TileEntityFurnace
+                    || tile instanceof FurnaceLogic || tile instanceof ToolStationLogic)
+                continue;
+
+            if (tile instanceof ISidedInventory sidedIvn
+                    && sidedIvn.getAccessibleSlotsFromSide(dir.getOpposite().ordinal()).length == 0)
+                continue;
+
+            if (inv.isUseableByPlayer(player)) {
+                if (!validChests.contains(tile)) {
+                    validChests.add(tile);
+                    validDirections.add(dir);
+                }
+            }
+        }
     }
 
     private boolean isBlacklisted(Class<? extends TileEntity> clazz) {
