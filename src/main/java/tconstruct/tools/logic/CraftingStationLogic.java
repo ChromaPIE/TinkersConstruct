@@ -181,11 +181,11 @@ public class CraftingStationLogic extends InventoryLogic implements ISidedInvent
                 continue;
             }
 
-            if (!(tile instanceof IInventory inv) || isBlacklisted(tile.getClass()))
-                continue;
+            if (!(tile instanceof IInventory inv) || isBlacklisted(tile.getClass())) continue;
 
             if (tile instanceof PatternChestLogic || tile instanceof TileEntityFurnace
-                    || tile instanceof FurnaceLogic || tile instanceof ToolStationLogic)
+                    || tile instanceof FurnaceLogic
+                    || tile instanceof ToolStationLogic)
                 continue;
 
             if (tile instanceof ISidedInventory sidedIvn
