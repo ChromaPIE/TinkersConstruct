@@ -39,6 +39,9 @@ public class CraftingStationOverlayHandler extends DefaultOverlayHandler {
             CraftingStationLogic logic = stationContainer.logic;
             if (logic.chest != null && slot.inventory == logic.chest.get()) return true;
             if (logic.doubleChest != null && slot.inventory == logic.doubleChest.get()) return true;
+            for (var ref : logic.multiChests) {
+                if (ref != null && slot.inventory == ref.get()) return true;
+            }
         }
 
         return super.canMoveFrom(slot, gui);
